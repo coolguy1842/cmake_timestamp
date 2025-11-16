@@ -6,7 +6,7 @@
 cmake_minimum_required(VERSION 3.12)
 
 # Compile the library that contains the global variables
-add_library( timestamp OBJECT timestamp.c)
+add_library(timestamp OBJECT timestamp.c)
 
 
 ##########################################################
@@ -22,9 +22,11 @@ add_library( timestamp OBJECT timestamp.c)
 # This variable drives the CMake auto-update scripts, so
 # this must not be commented out!
 # (TIMESTAMP is a CMake built-in command)
-string(TIMESTAMP BUILD_TIME "%Y-%m-%d %H:%M:%S" UTC)
-
-
+execute_process(
+    COMMAND date -u "+%Y/%m/%d %H:%M:%S UTC"
+    OUTPUT_VARIABLE BUILD_TIME
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 
 ##########################################################
 # Git versioning info.
@@ -36,22 +38,21 @@ function(git_cmd optstring output)
 	# in argv[1])
 	string(REPLACE " " ";" cmd_list ${optstring})
 	execute_process(
-	COMMAND
-		${GIT_EXECUTABLE} ${cmd_list}
-	WORKING_DIRECTORY
-		${CMAKE_SOURCE_DIR}
-	OUTPUT_VARIABLE
-		res
-	OUTPUT_STRIP_TRAILING_WHITESPACE
+		COMMAND ${GIT_EXECUTABLE} ${cmd_list}
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		OUTPUT_VARIABLE res
+		OUTPUT_STRIP_TRAILING_WHITESPACE
 	)
-	set( ${output} ${res} PARENT_SCOPE )
+
+	string(REGEX REPLACE "^ +" "" res "${res}")
+	set(${output} ${res} PARENT_SCOPE)
 endfunction()
 
-git_cmd( "show -s --format=%H" GIT_HASH)
-git_cmd( "show -s --format=%h" GIT_SHORT_HASH)
-git_cmd( "diff -w --shortstat" GIT_DIRTY)
-if( ${GIT_VERSION_STRING} VERSION_GREATER_EQUAL 2.22 )
-	git_cmd( "branch --show-current" GIT_BRANCH)
+git_cmd("show -s --format=%H" GIT_HASH)
+git_cmd("show -s --format=%h" GIT_SHORT_HASH)
+git_cmd("diff -w --shortstat" GIT_DIRTY)
+if(${GIT_VERSION_STRING} VERSION_GREATER_EQUAL 2.22)
+	git_cmd("branch --show-current" GIT_BRANCH)
 endif()
 
 
@@ -74,15 +75,13 @@ target_compile_definitions(
 # Only building of the timestamp library below this point.
 # No configuration should be necessary.
 #
-target_include_directories( timestamp
-	PUBLIC
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+target_include_directories(timestamp PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
 #Add a dummy target that removes the CMake variable BUILD_TIME from CMake's cache.
 #this forces CMake to be-rerun when we hit this target.
-add_custom_target(
-	clear_cache
+add_custom_target(clear_cache
 	COMMAND ${CMAKE_COMMAND} -U BUILD_TIME ${CMAKE_BINARY_DIR}
 )
 
